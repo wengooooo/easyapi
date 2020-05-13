@@ -204,15 +204,31 @@ class BaseProvider extends AbstractProvider
      * @throws \EasyApi\Core\Exceptions\InvalidArgumentException
      * @throws \EasyApi\Core\Exceptions\RuntimeException
      */
-    public function getToken($refresh=false) {
+    public function getToken($refresh=false, $return = false) {
         $cacheKey = $this->getCacheKey();
         $cache = $this->getCache();
 
-        if (!$refresh && $cache->has($cacheKey)) {
+        if($cache->has($cacheKey)) {
             return $cache->get($cacheKey);
+        } else {
+            $this->initializeToken();
         }
 
-        throw new RuntimeException("Failed to get access token. You could call initializeToken method to make an access token");
+        if($refresh) {
+            $this->refresh();
+        }
+
+//        if (!$refresh && $cache->has($cacheKey)) {
+//            return $cache->get($cacheKey);
+//        } else if($refresh) {
+//
+//            return $cache->get($cacheKey);
+//        }
+
+
+
+        return false;
+//        throw new RuntimeException("Failed to get access token. You could call initializeToken method to make an access token");
     }
 
     /**
@@ -238,6 +254,7 @@ class BaseProvider extends AbstractProvider
      * @throws \EasyApi\Core\Exceptions\RuntimeException
      */
     public function setToken(\League\OAuth2\Client\Token\AccessToken $token) {
+
         $this->getCache()->set($this->getCacheKey(), $token, $token->getExpires() - $this->safeSeconds);
 
         if (!$this->getCache()->has($this->getCacheKey())) {
@@ -364,6 +381,7 @@ class BaseProvider extends AbstractProvider
     public function initializeToken() {
         $code = $this->getCode();
         $result = parent::getAccessToken('authorization_code', ['code' => $code]);
+
         $this->setToken($result);
         return $this;
     }

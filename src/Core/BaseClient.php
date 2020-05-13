@@ -3,6 +3,7 @@
 namespace EasyApi\Core;
 
 
+use EasyApi\Core\Exceptions\RuntimeException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
@@ -25,6 +26,9 @@ class BaseClient
     protected $app;
 
     protected $client;
+
+    public $headers = ['user-agent' => 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'];
+
 
     protected $requests = [];
     /**
@@ -82,6 +86,8 @@ class BaseClient
     }
 
     public function execute() {
+        $this->app->oauth->getToken(true);
+
         $responseList =  Pool::batch($this->getHttpClient(), $this->requests, ['options' => ['handler' => $this->getHandlerStack()]]);
         foreach($responseList as &$response) {
             $response = $this->castResponseToType($response, $this->app->config->get('response_type'));
@@ -122,5 +128,34 @@ class BaseClient
                 }
             }
         }
+    }
+
+    public function getHeaders() {
+        return $this->headers;
+    }
+
+    public function makeRequest($endpoint, $body, $headers = [], $method = 'post') {
+        $headers = array_merge($this->getHeaders(), $headers);
+        $method = strtolower($method);
+
+        if($method == 'post') {
+            switch (gettype($body)) {
+                case 'resource':
+                    $body = new \GuzzleHttp\Psr7\MultipartStream([['name' => 'file','contents' => $body]]);
+                    $headers['Content-Type'] = 'multipart/form-data; boundary=' . $body->getBoundary();
+                    break;
+                default:
+                    $headers['Content-Type'] = 'application/x-www-form-urlencoded';
+                    break;
+            }
+
+        } else {
+            $headers['Content-Type'] = 'text/html';
+        }
+
+
+        $request = new Request($method, $endpoint, $headers, $body);
+        $this->addRequest($request);
+        return $request;
     }
 }

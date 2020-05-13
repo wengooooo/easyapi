@@ -28,13 +28,12 @@ use EasyApi\Core\ServiceContainer;
 class Application extends ServiceContainer {
     protected $providers = [
         OAuth\ServiceProvider::class,
-//        Category\ServiceProvider::class,
-//        DeliveryCompany\ServiceProvider::class,
+        Category\ServiceProvider::class,
+        DeliveryCompany\ServiceProvider::class,
 //        ItemCategories\ServiceProvider::class,
 //        Savings\ServiceProvider::class,
         User\ServiceProvider::class,
         Items\ServiceProvider::class,
-////        Mulit\Items\ServiceProvider::class,
-//        Order\ServiceProvider::class
+        Order\ServiceProvider::class
     ];
 }

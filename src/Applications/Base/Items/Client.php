@@ -11,16 +11,15 @@ use EasyApi\Applications\Base\BaseClient;
 
 class Client extends BaseClient
 {
-    public $jar;
-
     /**
      * 获取所有产品
-     * @param  array $options
+     * @param  array $items
      */
-    public function getItems(...$options) {
-        $allowParams = ['order', 'sort', 'limit', 'offset', 'max_image_no', 'image_size'];
-        $this->app['client']->makeGet('http://httpbin.org/get');
-//        $this->app['client']->makeGet('/1/items', $this->filterOptions($allowParams, $options));
+    public function getItems($items, $limit = 100) {
+        return array_map(function ($item) use ($limit) {
+            $item['limit'] = $limit;
+            return $this->app['client']->makeRequest(sprintf('/1/items?%s', http_build_query($item)), null, [], 'get');
+        }, $items);
     }
 
     /**
@@ -29,9 +28,11 @@ class Client extends BaseClient
      * @param  array $options
      * @return array
      */
-    public function search(string $keyword, ...$options) {
-        $allowParams = ['q', 'order', 'sort', 'limit', 'offset', 'fields'];
-        return $this->httpGet('/1/items/search', $this->filterOptions($allowParams, ['q' => $keyword], $options));
+    public function search($keywords, ...$options) {
+        return array_map(function ($keyword) use ($options) {
+            $keyword = ['q' => $keyword];
+            return $this->app['client']->makeRequest(sprintf('/1/items/search?%s', http_build_query($keyword)), null, [], 'get');
+        }, $keywords);
     }
 
     /**
@@ -39,8 +40,10 @@ class Client extends BaseClient
      * @param int $item_id
      * @return array
      */
-    public function getItem(int $item_id) {
-        return $this->httpGet(sprintf('/1/items/detail/%s', $item_id));
+    public function getItem($item_ids) {
+        return array_map(function ($item_id) {
+            return $this->app['client']->makeRequest(sprintf('/1/items/detail/%s', $item_id), null, [], 'get');
+        }, $item_ids);
     }
 
     /**
@@ -51,11 +54,13 @@ class Client extends BaseClient
      * @param array $options
      * @return array
      */
-    public function addItem($options) {
+    public function addItem($items) {
         $allowParams = ['title', 'detail', 'price', 'stock', 'visible', 'item_tax_type', 'identifier', 'list_order', 'variation', 'variation_stock', 'variation_identifier'];
 
-        $options = array_intersect_key($options, array_flip($allowParams));
-        return $this->httpPost('/1/items/add', $options);
+        return array_map(function ($item) {
+            return $this->app['client']->makeRequest('/1/items/add', http_build_query($item));
+        }, $items);
+
     }
 
     /**
@@ -64,12 +69,14 @@ class Client extends BaseClient
      * @param array $options
      * @return array
      */
-    public function editItem(int $item_id, $options) {
-        $allowParams = ['item_id', 'title', 'detail', 'price', 'stock', 'visible', 'item_tax_type', 'identifier', 'list_order', 'variation_id', 'variation', 'variation_stock', 'variation_identifier'];
-        $options['item_id'] = $item_id;
-        $options = array_intersect_key($options, array_flip($allowParams));
+    public function editItem($items) {
+//        $allowParams = ['item_id', 'title', 'detail', 'price', 'stock', 'visible', 'item_tax_type', 'identifier', 'list_order', 'variation_id', 'variation', 'variation_stock', 'variation_identifier'];
+//        $options['item_id'] = $item_id;
+//        $options = array_intersect_key($options, array_flip($allowParams));
 
-        return $this->httpPost('/1/items/edit', $options);
+        return array_map(function ($item) {
+            return $this->app['client']->makeRequest('/1/items/edit', http_build_query($item));
+        }, $items);
     }
 
     /**
@@ -77,8 +84,11 @@ class Client extends BaseClient
      * @param int $item_id
      * @return array
      */
-    public function deleteItem(int $item_id) {
-        return $this->httpPost('/1/items/delete', ['item_id' => $item_id]);
+    public function deleteItem($item_ids) {
+        return array_map(function ($item_id) {
+            $item['item_id'] = $item_id;
+            return $this->app['client']->makeRequest('/1/items/delete', http_build_query($item));
+        }, $item_ids);
     }
 
     /**
@@ -88,14 +98,19 @@ class Client extends BaseClient
      * @param string $image_url
      * @return array
      */
-    public function addImage(int $item_id, string $image_no, string $image_url) {
-        $options = array(
-            'item_id'  => $item_id,
-            'image_no'  => $image_no,
-            'image_url'  => $image_url
-        );
+    public function addImage($items) {
+        $requests = [];
+        foreach($items as $item) {
+            foreach($item as $im) {
+                $requests[] = $this->app['client']->makeRequest('/1/items/add_image', http_build_query([
+                    'item_id'  => $im['item_id'],
+                    'image_no'  => $im['image_no'],
+                    'image_url'  => $im['image_url']
+                ]));
+            }
+        }
 
-        return $this->httpPost('/1/items/add_image', $options);
+        return $requests;
     }
 
     /**
@@ -104,13 +119,18 @@ class Client extends BaseClient
      * @param string $image_no
      * @return array
      */
-    public function deleteImage(int $item_id, string $image_no) {
-        $options = array(
-            'item_id'  => $item_id,
-            'image_no'  => $image_no,
-        );
+    public function deleteImage($items) {
+        $requests = [];
+        foreach($items as $item) {
+            foreach($item as $im) {
+                $requests[] = $this->app['client']->makeRequest('/1/items/delete_image', http_build_query([
+                    'item_id'  => $im['item_id'],
+                    'image_no'  => $im['image_no']
+                ]));
+            }
+        }
 
-        return $this->httpPost('/1/items/delete_image', $options);
+        return $requests;
     }
 
     /**
@@ -121,15 +141,16 @@ class Client extends BaseClient
      * @param int $variation_stock
      * @return array
      */
-    public function editStock(int $item_id, int $stock, int $variation_id, int $variation_stock) {
-        $options = array(
-            'item_id'  => $item_id,
-            'stock'  => $stock,
-            'variation_id'  => $variation_id,
-            'variation_stock'  => $variation_stock,
-        );
-
-        return $this->httpPost('/1/items/edit_stock', $options);
+    public function editStock($items) {
+        return array_map(function($item) {
+            $item = array(
+                'item_id'  => $item['item_id'],
+                'stock'  => $item['stock'],
+                'variation_id'  => $item['variation_id'],
+                'variation_stock'  => $item['variation_stock'],
+            );
+            return $this->app['client']->makeRequest('/1/items/edit_stock', http_build_query($item));
+        }, $items);
     }
 
     /**
@@ -138,101 +159,13 @@ class Client extends BaseClient
      * @param int $variation_id
      * @return array
      */
-    public function deleteVariation(int $item_id, int $variation_id) {
-        $options = array(
-            'item_id'  => $item_id,
-            'variation_id'  => $variation_id,
-        );
-
-        return $this->httpPost('/1/items/delete_variation', $options);
-    }
-
-    public function batchAddItem($products) {
-        $this->login();
-//        $this->pushMiddleware($this->loginMiddleware(), 'login');
-        $options = ['handler' => $this->getHandlerStack()];
-        $options['base_uri'] = 'https://admin.thebase.in/';
-        $options['cookies'] = $this->jar;
-        $pool = new Pool($this->getHttpClient(), $this->requests($products), [
-            'concurrency' => 5,
-            'options'     => $options,
-            'fulfilled'   => $this->handleAddSuccess(),
-            'rejected'    => $this->handleAddFaild(),
-        ]);
-
-        $promise = $pool->promise();
-
-        $promise->wait();
-
-    }
-
-    public function requests($products) {
-        foreach($products as $product) {
-//            $options['form_params'] = $product;
-//            yield new Request("POST", 'shop_admin/api/items/add', $options);
-            yield new Request("get", 'https://admin.thebase.in/dashboard');
-        }
-    }
-
-    public function handleAddSuccess () {
-        return function($response, $index) {
-            file_put_contents('H:/ceshi.html', $response->getBody());
-            var_dump(12345);
-            var_dump($response->getStatusCode());
-        };
-    }
-    public function handleAddFaild () {
-        return function($reason, $index) {
-
-            var_dump($reason->getMessage());
-        };
-    }
-
-    public function login() {
-        $client = new \GuzzleHttp\Client(['cookies' => true, 'debug' => true]);
-        $response = $client->get('https://admin.thebase.in/users/login');
-        $params = [];
-        if($response->getStatusCode() == 200) {
-            $document = pq::newDocumentHTML($response->getBody());
-            $document->find("#userLoginForm input")->each(function(DOMElement $element) use(&$params) {
-                $params[$element->getAttribute("name")] = $element->getAttribute("value");
-            });
-
-            $params['data[User][mail_address]'] = 'sale@20secret.com';
-            $params['data[User][password]']     = '1q1q1q1q';
-
-            $response = $client->post('https://admin.thebase.in' . $document->find("#userLoginForm")->attr('action'), ['form_params' => $params]);
-            $this->jar = $client->getConfig('cookies');
-        }
-    }
-    /**
-     * 登录中间件
-     */
-    protected function loginMiddleware() {
-        return function (callable $handler) {
-            return function (RequestInterface $request, array $options) use ($handler) {
-
-                if(sizeof($options['cookies']) == 0) {
-
-                    $client = new \GuzzleHttp\Client(['cookies' => true]);
-                    $response = $client->get('https://admin.thebase.in/users/login');
-                    $params = [];
-                    if($response->getStatusCode() == 200) {
-                        $document = pq::newDocumentHTML($response->getBody());
-                        $document->find("#userLoginForm input")->each(function(DOMElement $element) use(&$params) {
-                            $params[$element->getAttribute("name")] = $element->getAttribute("value");
-                        });
-
-                        $params['data[User][mail_address]'] = 'sale@20secret.com';
-                        $params['data[User][password]']     = '1q1q1q1q';
-
-                        $response = $client->post('https://admin.thebase.in' . $document->find("#userLoginForm")->attr('action'), ['form_params' => $params]);
-                        $options['cookies'] = $client->getConfig('cookies');
-                    }
-                }
-
-                return $handler($request, $options);
-            };
-        };
+    public function deleteVariation($items) {
+        return array_map(function($item) {
+            $item = array(
+                'item_id'  => $item['item_id'],
+                'variation_id'  => $item['variation_id'],
+            );
+            return $this->app['client']->makeRequest('/1/items/delete_variation', http_build_query($item));
+        }, $items);
     }
 }

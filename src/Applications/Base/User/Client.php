@@ -18,6 +18,6 @@ class Client extends BaseClient
      * @return array
      */
     public function getUser() {
-        $this->app['client']->makeGet('/1/users/me/');
+        $this->app['client']->makeRequest('/1/users/me/', null, [], 'GET');
     }
 }
