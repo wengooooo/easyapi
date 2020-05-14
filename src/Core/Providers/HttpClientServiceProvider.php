@@ -25,7 +25,6 @@ class HttpClientServiceProvider implements ServiceProviderInterface
     {
         $pimple['client'] = function ($app) {
             return new BaseClient($app);
-//            return new Client($app['config']->get('http', []));
         };
     }
 }

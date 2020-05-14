@@ -41,6 +41,14 @@ trait HttpRequests
         'curl' => [
             CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
         ],
+        'response_type' => 'array',
+        'http' => [
+            'max_retries' => 5,
+            'retry_delay' => 500,
+            'timeout' => 120,
+            'debug' => true,
+            'cookies' => true,
+        ]
     ];
 
     /**
@@ -72,6 +80,7 @@ trait HttpRequests
      */
     public function setHttpClient(ClientInterface $httpClient)
     {
+
         $this->httpClient = $httpClient;
 
         return $this;
@@ -84,9 +93,11 @@ trait HttpRequests
      */
     public function getHttpClient(): ClientInterface
     {
+
         if (!($this->httpClient instanceof ClientInterface)) {
-            $options = array_merge(self::$defaults, $this->app->config->get('http'));
-            $options['handler'] = HandlerStack::create($this->getGuzzleHandler());
+            $options = array_merge(self::$defaults['http'], $this->app->config->get('http'));
+            $options['curl'] = array_merge(self::$defaults['curl'], $this->app->config->get('curl', []));
+            $options['handler'] = $this->getHandlerStack();
 
             $this->httpClient = new Client($options);
         }
@@ -152,7 +163,6 @@ trait HttpRequests
         if (property_exists($this, 'baseUri') && !is_null($this->baseUri)) {
             $options['base_uri'] = $this->baseUri;
         }
-
 
         $response = $this->getHttpClient()->request($method, $url, $options);
 

@@ -58,19 +58,10 @@ class BaseClient
                 return true;
             }
 
-            // Limit the number of retries to 2
-            if ($retries < $this->app->config->get('http.max_retries', 3) && $response && $body = $response->getBody()) {
-                // Retry on server errors
-                $response = json_decode($body, true);
-                if(json_last_error() == JSON_ERROR_NONE) {
-                    if (!empty($response['error']) && in_array($response['error'], ['invalid_request'], true)) {
-                        $this->token->refresh();
-//                    $this->app['logger']->debug('Retrying with refreshed access token.');
-
-                        return true;
-                    }
-                }
-            }
+//            // Limit the number of retries to 2
+//            if ($retries < $this->app->config->get('http.max_retries', 3)) {
+//                return true;
+//            }
 
             return false;
         }, function () {
@@ -89,7 +80,7 @@ class BaseClient
             return function (RequestInterface $request, array $options) use ($handler) {
 
                 if ($this->token && stripos($this->app->config->get('http.base_uri'), $request->getUri()->getHost()) !== false) {
-                    $request = $this->token->applyToHeader($request, $options);
+                    $request = $request->withHeader('Authorization', 'Bearer ' . $this->app->config->get('access_token'));
                 }
 
                 return $handler($request, $options);
