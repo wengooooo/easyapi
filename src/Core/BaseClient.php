@@ -3,6 +3,7 @@
 namespace EasyApi\Core;
 
 
+use EasyApi\Core\Traits\WithLock;
 use Guzzle\Http\Exception\RequestException;
 use GuzzleHttp\Pool;
 use EasyApi\Core\Traits\HttpRequests;
@@ -11,6 +12,7 @@ use GuzzleHttp\Psr7\Request;
 class BaseClient
 {
     use HttpRequests { request as performRequest;}
+    use WithLock;
 
     /**
      * @var \EasyApi\Core\ServiceContainer
@@ -23,53 +25,18 @@ class BaseClient
 
 
     protected $requests = [];
+
     /**
      * BaseClient constructor.
      *
      * @param \EasyApi\Core\ServiceContainer                    $app
      * @param \EasyApi\Core\Contracts\AccessTokenInterface|null $accessToken
      */
-    
+
     public function __construct(ServiceContainer $app)
     {
         $this->app = $app;
     }
-//
-//    public function makePost(string $url, array $data = [], array $query = [])
-//    {
-//        $options = ['form_params' => $data];
-//        if ($query) {
-//            $options['query'] = $query;
-//        }
-//
-//        $this->addRequest(new Request('POST', $url));
-//    }
-//
-//    public function makeGet(string $url, array $query = []) {
-//        $this->addRequest(new Request('GET', $url));
-//    }
-//
-//    /**
-//     * @param string $url
-//     * @param string $method
-//     * @param array  $options
-//     * @param bool   $returnRaw
-//     *
-//     * @return \Psr\Http\Message\ResponseInterface|\EasyApi\Core\Support\Collection|array|object|string
-//     *
-//     * @throws \EasyApi\Core\Exceptions\InvalidConfigException
-//     * @throws \GuzzleHttp\Exception\GuzzleException
-//     */
-//    public function request(string $url, string $method = 'GET', array $options = [], $returnRaw = false)
-//    {
-//        if (empty($this->middlewares)) {
-//            $this->registerHttpMiddlewares();
-//        }
-//
-//        $response = $this->performRequest($url, $method, $options);
-//
-//        return $returnRaw ? $response : $this->castResponseToType($response, $this->app->config->get('response_type'));
-//    }
 
     public function addRequest($requests) {
         $requests = is_array($requests) ? $requests : [$requests];
@@ -83,15 +50,36 @@ class BaseClient
         }, $requests);
     }
 
+    public function getRequests() {
+        return $this->requests;
+    }
+
     public function execute() {
-        $responseList =  Pool::batch($this->getHttpClient(), $this->requests);
+
+        $responseList =  Pool::batch($this->getHttpClient(), $this->requests, ['concurrency' => 10]);
 //        $responseList =  Pool::batch($this->getHttpClient(), $this->requests, ['options' => ['handler' => $this->getHandlerStack()]]);
         foreach($responseList as &$response) {
-            dump($response);
             $response = $this->castResponseToType($response, $this->app->config->get('response_type'));
         }
 
+        $this->resetRequests();
         return $responseList;
+    }
+
+    public function asyncExecute($fulfilled, $rejected) {
+        $pool = new Pool($this->getHttpClient(), $this->requests, [
+            'concurrency' => 10,
+            'fulfilled' => $fulfilled,
+            'rejected' => $rejected,
+        ]);
+
+        $promise = $pool->promise();
+        $promise->wait();
+        $this->resetRequests();
+    }
+
+    public function resetRequests() {
+        $this->requests = [];
     }
 
 

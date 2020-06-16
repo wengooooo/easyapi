@@ -18,12 +18,8 @@ class Client extends BaseClient
      * @param  array $options
      * @return array
      */
-    public function getOrders($orders): array {
-        return array_map(function ($order) {
-            $allowParams = ['start_ordered', 'end_ordered', 'limit', 'offset'];
-            return $this->app['client']->makeRequest(sprintf('/1/orders?%s', http_build_query($order)), null, [], 'get');
-        }, $orders);
-
+    public function getOrders($order) {
+        return $this->app['client']->makeRequest(sprintf('/1/orders?%s', http_build_query($order)), null, [], 'get');
     }
 
     /**
@@ -31,11 +27,9 @@ class Client extends BaseClient
      * @param  string $uniqueKey
      * @return array
      */
-    public function getOrderDetail($orders): array {
-        return array_map(function ($order) {
-            $allowParams = ['start_ordered', 'end_ordered', 'limit', 'offset'];
-            return $this->app['client']->makeRequest(sprintf('/1/orders/detail/%s', $order['id']), null, [], 'get');
-        }, $orders);
+    public function getOrderDetail($id) {
+        return $this->app['client']->makeRequest(sprintf('/1/orders/detail/%s', $id), null, [], 'get');
+
 
     }
 
@@ -49,7 +43,7 @@ class Client extends BaseClient
      * @param  string $tracking_number
      * @return array
      */
-    public function updateOrder($orders): array {
+    public function updateOrder($orders) {
         return array_map(function ($order) {
             $allowParams = ['start_ordered', 'end_ordered', 'limit', 'offset'];
             return $this->app['client']->makeRequest('/1/orders/edit_status', http_build_query([

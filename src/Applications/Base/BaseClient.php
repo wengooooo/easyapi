@@ -4,6 +4,7 @@ namespace EasyApi\Applications\Base;
 
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Middleware;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -19,6 +20,9 @@ class BaseClient
     protected $token;
 
     protected $app;
+
+    protected $retryCallback;
+
     /**
      * BaseClient constructor.
      *
@@ -29,7 +33,6 @@ class BaseClient
     {
         $this->app = $app;
         $this->registerHttpMiddlewares();
-        $this->token = $this->app['oauth'];
     }
 
     /**
@@ -40,7 +43,47 @@ class BaseClient
         $this->app['client']->pushMiddleware($this->retryMiddleware(), 'retry');
         $this->app['client']->pushMiddleware($this->accessTokenMiddleware(), 'access_token');
     }
-    
+
+    protected function getRetryCallback() {
+        if(!$this->retryCallback) {
+            $this->retryCallback = function ($retries, RequestInterface $request, ResponseInterface $response = null, $exception = null) {
+                //处理服务器返回500
+//            if($exception == null && $response->getStatusCode() == 500) {
+//                return true;
+//            }
+                if ($exception instanceof ConnectException || $exception instanceof RequestException) {
+                    return true;
+                }
+
+                return false;
+            };
+        }
+
+        return $this->retryCallback;
+    }
+
+    protected function setRetryCallBack($callback) {
+        $this->retryCallback = $callback;
+    }
+
+    public function filterOptions($allow, ...$options) {
+        $mergeOptions = [];
+        $this->mergeOptions($mergeOptions, $options);
+        return array_intersect_key($mergeOptions, array_flip($allow));
+    }
+
+    function mergeOptions(array &$array1, $options) {
+        if (is_array($options)) {
+            foreach($options as $key => $value) {
+                if(is_array($value)) {
+                    $this->mergeOptions($array1, $value);
+                } else {
+                    $array1[$key] = $value;
+                }
+            }
+        }
+    }
+
     /**
      * Return retry middleware.
      *
@@ -48,20 +91,23 @@ class BaseClient
      */
     protected function retryMiddleware()
     {
-        return Middleware::retry(function (
-            $retries,
-            RequestInterface $request,
-            ResponseInterface $response = null,
-            $exception = null
-        ) {
-            if ($exception instanceof ConnectException || $exception instanceof RequestException) {
-                return true;
-            }
-
-//            // Limit the number of retries to 2
-//            if ($retries < $this->app->config->get('http.max_retries', 3)) {
+        return Middleware::retry(function ($retries, RequestInterface $request, ResponseInterface $response = null, $exception = null) {
+            //处理服务器返回500
+//            if($exception == null && $response->getStatusCode() == 500) {
 //                return true;
 //            }
+
+            if ($exception instanceof ConnectException || $exception instanceof RequestException) {
+                while(true) {
+                    if($this->app->config->get('access_token')()) {
+                        break;
+                    }
+
+                    sleep(10);
+                }
+
+                return true;
+            }
 
             return false;
         }, function () {
@@ -79,8 +125,8 @@ class BaseClient
         return function (callable $handler) {
             return function (RequestInterface $request, array $options) use ($handler) {
 
-                if ($this->token && stripos($this->app->config->get('http.base_uri'), $request->getUri()->getHost()) !== false) {
-                    $request = $request->withHeader('Authorization', 'Bearer ' . $this->app->config->get('access_token'));
+                if (stripos($this->app->config->get('http.base_uri'), $request->getUri()->getHost()) !== false) {
+                    $request = $request->withHeader('Authorization', 'Bearer ' . $this->app->config->get('access_token')());
                 }
 
                 return $handler($request, $options);

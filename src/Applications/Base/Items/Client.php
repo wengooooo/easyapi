@@ -13,13 +13,10 @@ class Client extends BaseClient
 {
     /**
      * 获取所有产品
-     * @param  array $items
+
      */
-    public function getItems($items, $limit = 100) {
-        return array_map(function ($item) use ($limit) {
-            $item['limit'] = $limit;
-            return $this->app['client']->makeRequest(sprintf('/1/items?%s', http_build_query($item)), null, [], 'get');
-        }, $items);
+    public function getItems($item) {
+        return $this->app['client']->makeRequest(sprintf('/1/items?%s', http_build_query($item)), null, [], 'get');
     }
 
     /**
@@ -28,11 +25,8 @@ class Client extends BaseClient
      * @param  array $options
      * @return array
      */
-    public function search($keywords, ...$options) {
-        return array_map(function ($keyword) use ($options) {
-            $keyword = ['q' => $keyword];
-            return $this->app['client']->makeRequest(sprintf('/1/items/search?%s', http_build_query($keyword)), null, [], 'get');
-        }, $keywords);
+    public function search($keywords) {
+        return $this->app['client']->makeRequest(sprintf('/1/items/search?%s', http_build_query($keywords)), null, [], 'get');
     }
 
     /**
@@ -40,10 +34,8 @@ class Client extends BaseClient
      * @param int $item_id
      * @return array
      */
-    public function getItem($item_ids) {
-        return array_map(function ($item_id) {
-            return $this->app['client']->makeRequest(sprintf('/1/items/detail/%s', $item_id), null, [], 'get');
-        }, $item_ids);
+    public function getItem($id) {
+        return $this->app['client']->makeRequest(sprintf('/1/items/detail/%s', $id), null, [], 'get');
     }
 
     /**
@@ -54,13 +46,8 @@ class Client extends BaseClient
      * @param array $options
      * @return array
      */
-    public function addItem($items) {
-        $allowParams = ['title', 'detail', 'price', 'stock', 'visible', 'item_tax_type', 'identifier', 'list_order', 'variation', 'variation_stock', 'variation_identifier'];
-
-        return array_map(function ($item) {
-            return $this->app['client']->makeRequest('/1/items/add', http_build_query($item));
-        }, $items);
-
+    public function addItem($item) {
+        return $this->app['client']->makeRequest('/1/items/add', http_build_query($item));
     }
 
     /**
@@ -69,14 +56,8 @@ class Client extends BaseClient
      * @param array $options
      * @return array
      */
-    public function editItem($items) {
-//        $allowParams = ['item_id', 'title', 'detail', 'price', 'stock', 'visible', 'item_tax_type', 'identifier', 'list_order', 'variation_id', 'variation', 'variation_stock', 'variation_identifier'];
-//        $options['item_id'] = $item_id;
-//        $options = array_intersect_key($options, array_flip($allowParams));
-
-        return array_map(function ($item) {
-            return $this->app['client']->makeRequest('/1/items/edit', http_build_query($item));
-        }, $items);
+    public function editItem($item) {
+        return $this->app['client']->makeRequest('/1/items/edit', http_build_query($item));
     }
 
     /**
@@ -84,11 +65,8 @@ class Client extends BaseClient
      * @param int $item_id
      * @return array
      */
-    public function deleteItem($item_ids) {
-        return array_map(function ($item_id) {
-            $item['item_id'] = $item_id;
-            return $this->app['client']->makeRequest('/1/items/delete', http_build_query($item));
-        }, $item_ids);
+    public function deleteItem($item) {
+        return $this->app['client']->makeRequest('/1/items/delete', http_build_query($item));
     }
 
     /**
@@ -98,19 +76,9 @@ class Client extends BaseClient
      * @param string $image_url
      * @return array
      */
-    public function addImage($items) {
-        $requests = [];
-        foreach($items as $item) {
-            foreach($item as $im) {
-                $requests[] = $this->app['client']->makeRequest('/1/items/add_image', http_build_query([
-                    'item_id'  => $im['item_id'],
-                    'image_no'  => $im['image_no'],
-                    'image_url'  => $im['image_url']
-                ]));
-            }
-        }
+    public function addImage($item) {
+        return $this->app['client']->makeRequest('/1/items/add_image', http_build_query($item));
 
-        return $requests;
     }
 
     /**
@@ -119,18 +87,8 @@ class Client extends BaseClient
      * @param string $image_no
      * @return array
      */
-    public function deleteImage($items) {
-        $requests = [];
-        foreach($items as $item) {
-            foreach($item as $im) {
-                $requests[] = $this->app['client']->makeRequest('/1/items/delete_image', http_build_query([
-                    'item_id'  => $im['item_id'],
-                    'image_no'  => $im['image_no']
-                ]));
-            }
-        }
-
-        return $requests;
+    public function deleteImage($item) {
+        return $this->app['client']->makeRequest('/1/items/delete_image', http_build_query($item));
     }
 
     /**
@@ -159,13 +117,7 @@ class Client extends BaseClient
      * @param int $variation_id
      * @return array
      */
-    public function deleteVariation($items) {
-        return array_map(function($item) {
-            $item = array(
-                'item_id'  => $item['item_id'],
-                'variation_id'  => $item['variation_id'],
-            );
-            return $this->app['client']->makeRequest('/1/items/delete_variation', http_build_query($item));
-        }, $items);
+    public function deleteVariation($item) {
+        return $this->app['client']->makeRequest('/1/items/delete_variation', http_build_query($item));
     }
 }

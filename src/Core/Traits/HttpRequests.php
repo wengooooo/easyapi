@@ -39,14 +39,14 @@ trait HttpRequests
      */
     protected static $defaults = [
         'curl' => [
-            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+//            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
         ],
         'response_type' => 'array',
         'http' => [
             'max_retries' => 5,
             'retry_delay' => 500,
             'timeout' => 120,
-            'debug' => true,
+//            'debug' => true,
             'cookies' => true,
         ]
     ];
