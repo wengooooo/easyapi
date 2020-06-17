@@ -98,16 +98,27 @@ class BaseClient
 //            }
 
             if ($exception instanceof ConnectException || $exception instanceof RequestException) {
-                while(true) {
+                return true;
+            }
+
+            if($response && $response->getStatusCode() == 400) {
+                $maxRetry = $this->app->config->get('http.max_retries', 10);
+     
+                while($maxRetry > 0) {
                     if($this->app->config->get('access_token')()) {
                         break;
                     }
 
-                    sleep(10);
+                    echo 'wiat';
+
+                    $maxRetry--;
+                    sleep(60);
                 }
 
                 return true;
             }
+
+
 
             return false;
         }, function () {
